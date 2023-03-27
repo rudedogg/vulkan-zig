@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const vkgen = @import("generator/index.zig");
 
 pub const ShaderCompileStep = vkgen.ShaderCompileStep;
@@ -44,7 +45,12 @@ pub fn build(b: *std.Build) void {
     });
     triangle_exe.install();
     triangle_exe.linkLibC();
-    triangle_exe.linkSystemLibrary("glfw");
+
+    if (builtin.os.tag == .macos) {
+        triangle_exe.linkSystemLibrary("glfw3");
+    } else {
+        triangle_exe.linkSystemLibrary("glfw");
+    }
 
     const example_registry = b.option([]const u8, "example-registry", "Override the path to the Vulkan registry used for the examples") orelse "examples/vk.xml";
     const gen = VkGenerateStep.create(b, example_registry);
