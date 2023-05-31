@@ -1162,9 +1162,9 @@ fn Renderer(comptime WriterType: type) type {
                 \\            @setEvalBranchQuota(10_000);
                 \\            const Type = std.builtin.Type;
                 \\            const fields_len = fields_len: {{
-                \\                var fields_len = 0;
+                \\                var fields_len: u32 = 0;
                 \\                for (@typeInfo({0s}CommandFlags).Struct.fields) |field| {{
-                \\                    fields_len += @boolToInt(@field(cmds, field.name));
+                \\                    fields_len += @intCast(u32, @boolToInt(@field(cmds, field.name)));
                 \\                }}
                 \\                break :fields_len fields_len;
                 \\            }};
@@ -1210,17 +1210,11 @@ fn Renderer(comptime WriterType: type) type {
                 if (classifyCommandDispatch(decl.name, command) != dispatch_type) {
                     continue;
                 }
-                switch (decl.decl_type) {
-                    .command => try self.renderWrapper(decl.name, decl.decl_type.command),
-                    .alias => |alias| {
-                        try self.writer.writeAll("pub const ");
-                        try self.writeIdentifierWithCase(.camel, trimVkNamespace(decl.name));
-                        try self.writer.writeAll(" = ");
-                        try self.writeIdentifierWithCase(.camel, trimVkNamespace(alias.name));
-                        try self.writer.writeAll(";\n");
-                    },
-                    else => unreachable,
-                }
+                // Note: If this decl is an alias, generate a full wrapper instead of simply an
+                // alias like `const old = new;`. This ensures that Vulkan bindings generated
+                // for newer versions of vulkan can still invoke extension behavior on older
+                // implementations.
+                try self.renderWrapper(decl.name, command);
             }
 
             try self.writer.writeAll("};}\n");

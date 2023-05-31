@@ -20,7 +20,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    generator_exe.install();
+    b.installArtifact(generator_exe);
 
     // or they can skip all that, and just make sure to pass `.registry = "path/to/vk.xml"` to `b.dependency`,
     // and then obtain the module directly via `.module("vulkan-zig")`.
@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    triangle_exe.install();
+    b.installArtifact(triangle_exe);
     triangle_exe.linkLibC();
 
     if (builtin.os.tag == .macos) {
@@ -55,6 +55,9 @@ pub fn build(b: *std.Build) void {
     const example_registry = b.option([]const u8, "example-registry", "Override the path to the Vulkan registry used for the examples") orelse "examples/vk.xml";
     const gen = VkGenerateStep.create(b, example_registry);
     triangle_exe.addModule("vulkan", gen.getModule());
+
+    const vk_zig_install_step = b.addInstallFile(gen.getSource(), "src/vk.zig");
+    b.getInstallStep().dependOn(&vk_zig_install_step.step);
 
     const shaders = ShaderCompileStep.create(
         b,
