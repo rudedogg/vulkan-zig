@@ -34,7 +34,7 @@ pub fn build(b: *Builder) void {
     const exe = b.addExecutable("my-executable", "src/main.zig");
 
     // Create a step that generates vk.zig (stored in zig-cache) from the provided vulkan registry.
-    const gen = vkgen.VkGenerateStep.create(b, "path/to/vk.xml", "vk.zig");
+    const gen = vkgen.VkGenerateStep.create(b, "path/to/vk.xml");
 
     // Add the generated file as package to the final executable
     exe.addModule("vulkan", gen.getModule());
@@ -59,7 +59,7 @@ There is also support for adding this project as a dependency through zig packag
 And then in your build.zig file, you'll need to add a line like this to your build function:
 ```zig
 const vkzig_dep = b.dependency("vulkan_zig", .{
-    .registry = b.pathFromRoot("path/to/vk.xml"),
+    .registry = @as([]const u8, b.pathFromRoot("path/to/vk.xml")),
 });
 const vkzig_bindings = vkzig_dep.module("vulkan-zig");
 exe.addModule("vulkan-zig", vkzig_bindings);
@@ -70,14 +70,15 @@ That will allow you to `@import("vulkan-zig")` in your executable's source.
 In the event you have a specific need for it, the generator executable is made available through the dependency, allowing you to run the executable as a build step in your own build.zig file.
 Doing so should look a bit like this:
 ```zig
-const vkzig_dep = b.dependency("vulkan_zig", .{}); // passing the registry argument here not necessary when using the executable directly
-const vkzig_generator = vkzig_dep.artifact("generator");
+const vk_gen = b.dependency("vulkan_zig", .{}).artifact("generator"); // get generator executable reference
 
-vkzig_generator.addArg("path/to/vk.xml");
-const vkzig_src = vkzig_generator.addOutputFileArg("vk.zig"); // this is the FileSource representing the generated bindings
+const generate_cmd = b.addRunArtifact(vk_gen);
+generate_cmd.addArg(b.pathFromRoot("vk.xml")); // path to xml file to use when generating the bindings
 
-const vkzig_bindings = b.createModule("vulkan-zig", .{ .source_file = vkzig_src });
-exe.addModule("vulkan-zig", vkzig_bindings);
+const vulkan_zig = b.addModule("vulkan-zig", .{
+    .source_file = generate_cmd.addOutputFileArg("vk.zig"), // this is the FileSource representing the generated bindings
+});
+exe.addModule("vulkan-zig", vulkan_zig);
 ```
 
 ### Function & field renaming
@@ -311,10 +312,10 @@ See [build.zig](build.zig) for a working example.
 * vulkan-zig has as of yet no functionality for selecting feature levels and extensions when generating bindings. This is because when an extension is promoted to Vulkan core, its fields and commands are renamed to lose the extensions author tag (for example, VkSemaphoreWaitFlagsKHR was renamed to VkSemaphoreWaitFlags when it was promoted from an extension to Vulkan 1.2 core). This leads to inconsistencies when only items from up to a certain feature level is included, as these promoted items then need to re-gain a tag.
 
 ## Example
-A partial implementation of https://vulkan-tutorial.org is implemented in [examples/triangle.zig](examples/triangle.zig). This example can be ran by executing `zig build run-triangle` in vulkan-zig's root.
+A partial implementation of https://vulkan-tutorial.com is implemented in [examples/triangle.zig](examples/triangle.zig). This example can be ran by executing `zig build run-triangle` in vulkan-zig's root.
 
 ## See also
-* Implementation of https://vulkan-tutorial.org using `@cImport`'ed bindings: https://github.com/andrewrk/zig-vulkan-triangle.
+* Implementation of https://vulkan-tutorial.com using `@cImport`'ed bindings: https://github.com/andrewrk/zig-vulkan-triangle.
 * Alternative binding generator: https://github.com/SpexGuy/Zig-Vulkan-Headers
 * Zig bindings for GLFW: https://github.com/hexops/mach-glfw
   * With vulkan-zig integration example: https://github.com/hexops/mach-glfw-vulkan-example
